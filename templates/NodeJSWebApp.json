@@ -1,0 +1,6 @@
+{
+  "name": "Simple Node.js Web Application",
+  "exclude": [
+    "node_modules"
+  ]
+}
