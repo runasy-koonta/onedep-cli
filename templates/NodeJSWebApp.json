@@ -9,7 +9,9 @@
   },
   "Dockerfile": [
     {
-      "from": "node:16"
+      "from": {
+        "baseImage": "node:16"
+      }
     },
     {
       "working_dir": "/usr/src/app"
@@ -20,7 +22,7 @@
       }
     },
     {
-      "run": [ "npm install" ]
+      "run": "npm install"
     },
     {
       "copy": {

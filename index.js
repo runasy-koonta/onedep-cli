@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 import inquirer from "inquirer";
 import fs from 'fs';
+import { generateDockerFileFromArray } from 'dockerfile-generator/lib/dockerGenerator.js';
 
 const _TEMPLATES = ['NodeJSWebApp', 'StaticWeb', 'PHP7'];
+
+const ReplaceDockerfileArgs = (dockerfile, args) => {
+  if (typeof dockerfile === 'string') {
+    return dockerfile.replace(/\${(\w+)}/g, (match, argName) => args[argName]);
+  } else if (Array.isArray(dockerfile)) {
+    return dockerfile.map((line) => ReplaceDockerfileArgs(line, args));
+  }
+  return Object.fromEntries(Object.entries(dockerfile).map(([key, value]) => [key, ReplaceDockerfileArgs(value, args)]));
+}
 
 const StartDeploy = async () => {
   const templates = Object.fromEntries(_TEMPLATES.map((template) => [template, JSON.parse(fs.readFileSync(`./templates/${template}.json`).toString())]));
@@ -39,6 +49,9 @@ const StartDeploy = async () => {
       ...customArgs,
     }
   }
+
+  const dockerfile = ReplaceDockerfileArgs(selectedPlatform.Dockerfile, responses);
+  const generatedDockerfile = generateDockerFileFromArray(dockerfile);
 }
 
 StartDeploy().then();
