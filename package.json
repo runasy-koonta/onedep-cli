@@ -12,6 +12,10 @@
   "license": "ISC",
   "dependencies": {
     "dockerfile-generator": "^4.0.14",
-    "inquirer": "^9.1.4"
+    "inquirer": "^9.1.4",
+    "loading-cli": "^1.1.0",
+    "node-docker-api": "^1.1.22",
+    "tar-fs": "^2.1.1",
+    "tar-stream": "^2.2.0"
   }
 }

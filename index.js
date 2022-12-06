@@ -1,9 +1,22 @@
 #!/usr/bin/env node
 import inquirer from "inquirer";
+import loading from 'loading-cli';
+
 import fs from 'fs';
+
 import { generateDockerFileFromArray } from 'dockerfile-generator/lib/dockerGenerator.js';
+import { Docker } from 'node-docker-api';
+import tar from 'tar-fs';
+
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const _TEMPLATES = ['NodeJSWebApp', 'StaticWeb', 'PHP7'];
+
+const promisifyStream = stream => new Promise((resolve, reject) => {
+  stream.on('end', resolve)
+  stream.on('error', reject)
+});
 
 const ReplaceDockerfileArgs = (dockerfile, args) => {
   if (typeof dockerfile === 'string') {
@@ -15,7 +28,10 @@ const ReplaceDockerfileArgs = (dockerfile, args) => {
 }
 
 const StartDeploy = async () => {
-  const templates = Object.fromEntries(_TEMPLATES.map((template) => [template, JSON.parse(fs.readFileSync(`./templates/${template}.json`).toString())]));
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+  const templates = Object.fromEntries(_TEMPLATES.map((template) => [template, JSON.parse(fs.readFileSync(path.join(__dirname, 'templates', `${template}.json`)).toString())]));
 
   const response = await inquirer.prompt([
     {
@@ -52,6 +68,16 @@ const StartDeploy = async () => {
 
   const dockerfile = ReplaceDockerfileArgs(selectedPlatform.Dockerfile, responses);
   const generatedDockerfile = generateDockerFileFromArray(dockerfile);
+
+  const docker = new Docker();
+
+  const pack = tar.pack(process.cwd());
+  pack.entry({ name: 'Dockerfile' }, generatedDockerfile);
+
+  const load = loading("Docker Image를 빌드하는 중...");
+  load.start();
+  await docker.image.build(pack).then(stream => promisifyStream(stream));
+  load.stop();
 }
 
 StartDeploy().then();
