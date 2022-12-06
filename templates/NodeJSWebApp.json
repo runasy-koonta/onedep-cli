@@ -2,5 +2,8 @@
   "name": "Simple Node.js Web Application",
   "exclude": [
     "node_modules"
-  ]
+  ],
+  "custom_args": {
+    "START_COMMAND": "서버를 시작하기 위한 커맨드를 지정해주세요. (ex) npm start"
+  }
 }

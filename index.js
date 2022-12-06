@@ -21,7 +21,24 @@ const StartDeploy = async () => {
     },
   ]);
 
-  console.log(response);
+  const selectedPlatform = Object.entries(templates).find((template) => template[1].name === response.platform)[1];
+
+  let responses = {
+    ...response,
+  };
+
+  if (selectedPlatform.custom_args) {
+    const customArgs = await inquirer.prompt(Object.entries(selectedPlatform.custom_args).map(([argName, message]) => ({
+      type: 'input',
+      name: argName,
+      message,
+    })));
+
+    responses = {
+      ...responses,
+      ...customArgs,
+    }
+  }
 }
 
 StartDeploy().then();
