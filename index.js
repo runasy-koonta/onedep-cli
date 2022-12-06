@@ -13,11 +13,6 @@ import { fileURLToPath } from 'url';
 
 const _TEMPLATES = ['NodeJSWebApp', 'StaticWeb', 'PHP7'];
 
-const promisifyStream = stream => new Promise((resolve, reject) => {
-  stream.on('end', resolve)
-  stream.on('error', reject)
-});
-
 const ReplaceDockerfileArgs = (dockerfile, args) => {
   if (typeof dockerfile === 'string') {
     return dockerfile.replace(/\${(\w+)}/g, (match, argName) => args[argName]);
@@ -76,8 +71,15 @@ const StartDeploy = async () => {
 
   const load = loading("Docker Image를 빌드하는 중...");
   load.start();
-  await docker.image.build(pack).then(stream => promisifyStream(stream));
-  load.stop();
+  const stream = await docker.image.build(pack, {
+    t: `${response.name}:latest`,
+  });
+
+  stream.on('data', data => load.text = `Docker Image를 빌드하는 중... (${JSON.parse(data.toString().split('\r\n')[0]).stream.replace('\n', '').substring(6)})`);
+  stream.on('error', (err) => load.fail(`Docker Image 빌드 실패: ${err.message}`))
+  stream.on('end', () => {
+    load.succeed('Docker Image 빌드 성공');
+  })
 }
 
 StartDeploy().then();
