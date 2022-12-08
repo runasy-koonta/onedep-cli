@@ -129,6 +129,8 @@ const StartDeploy = async () => {
     // Wait for the instance to be running
     await ec2.waitFor('instanceRunning', {InstanceIds: [instanceId]}).promise();
 
+    await (async () => setTimeout(() => {}, 10000))();
+
     // Get IPv4
     const instance = await ec2.describeInstances({InstanceIds: [instanceId]}).promise();
     const ipv4 = instance.Reservations[0].Instances[0].PublicIpAddress;
@@ -155,6 +157,11 @@ const StartDeploy = async () => {
       shell.on('close', () => {
         resolve();
       });
+      shell.on('data', (data) => {
+        const l = data.toString().split('\n')[0].replace(/\r/g, '');
+
+        load.text = '새로운 EC2 Instance를 생성하는 중... (' + l.substring(0, 60) + ')';
+      });
       shell.end(commands);
     }))();
 
@@ -169,17 +176,46 @@ const StartDeploy = async () => {
   const pack = tar.pack(process.cwd());
   pack.entry({name: 'Dockerfile'}, generatedDockerfile);
 
-  const load = loading("Docker Image를 빌드하는 중...");
+  let load = loading("Docker Image를 빌드하는 중...");
   load.start();
   const stream = await docker.image.build(pack, {
     t: `${response.name}:latest`,
   });
 
-  stream.on('data', data => load.text = `Docker Image를 빌드하는 중... (${JSON.parse(data.toString().split('\r\n')[0]).stream.replace('\n', '').substring(6)})`);
-  stream.on('error', (err) => load.fail(`Docker Image 빌드 실패: ${err.message}`))
-  stream.on('end', () => {
-    load.succeed('Docker Image 빌드 성공');
-  })
+  await (() => new Promise((resolve, reject) => {
+    stream.on('data', data => load.text = `Docker Image를 빌드하는 중... (${JSON.parse(data.toString().split('\r\n')[0]).stream.replace('\n', '').replace('\r', '').substring(6)})`);
+    stream.on('error', (err) => { load.fail(`Docker Image 빌드 실패: ${err.message}`); reject(); })
+    stream.on('end', () => {
+      return resolve();
+    });
+  }))();
+
+  load.succeed('Docker Image 빌드 성공');
+
+  load = loading("Docker Image를 푸시하는 중...");
+  load.start();
+
+  const image = docker.image.get(`${response.name}:latest`);
+
+  await image.tag({
+    repo: `${config.instanceIpv4}.nip.io:5000/${response.name}`,
+    tag: `latest`,
+  });
+  const pushStream = await docker.image.get(`${config.instanceIpv4}.nip.io:5000/${response.name}:latest`).push({
+    username: 'onedep',
+    password: config.registryPassword,
+    serveraddress: `${config.instanceIpv4}:5000`
+  });
+
+  await (() => new Promise((resolve, reject) => {
+    pushStream.on('data', data => load.text = `Docker Image를 푸시하는 중... (${JSON.parse(data.toString().split('\r\n')[0]).status})`);
+    pushStream.on('error', (err) => { load.fail(`Docker Image 푸시 실패: ${err.message}`); reject(); })
+    pushStream.on('end', () => {
+      return resolve();
+    });
+  }))();
+
+  load.succeed('Docker Image 푸시 성공');
 }
 
-StartDeploy().then();
+StartDeploy().then(() => process.exit());
