@@ -129,8 +129,6 @@ const StartDeploy = async () => {
     // Wait for the instance to be running
     await ec2.waitFor('instanceRunning', {InstanceIds: [instanceId]}).promise();
 
-    await (async () => setTimeout(() => {}, 10000))();
-
     // Get IPv4
     const instance = await ec2.describeInstances({InstanceIds: [instanceId]}).promise();
     const ipv4 = instance.Reservations[0].Instances[0].PublicIpAddress;
@@ -142,11 +140,20 @@ const StartDeploy = async () => {
     config.registryPassword = `${Math.random().toString(36).slice(-8)}${Math.random().toString(36).slice(-8)}${Math.random().toString(36).slice(-8)}`;
 
     const ssh = new NodeSSH();
-    await ssh.connect({
-      host: ipv4,
-      username: 'ec2-user',
-      privateKey: keyPair.KeyMaterial,
-    });
+
+    const conn = async () => {
+      try {
+        await ssh.connect({
+          host: ipv4,
+          username: 'ec2-user',
+          privateKey: keyPair.KeyMaterial,
+        });
+      } catch (e) {
+        await (async () => setTimeout(() => {}, 10000))();
+        await conn();
+      }
+    };
+    await conn();
 
     const commands = fs.readFileSync(path.join(__dirname, 'commands', 'Docker')).toString().replace(/\${(\w+)}/g, (match, argName) => config[argName]).replace(/\r/g, '');
     const shell = await ssh.requestShell();
@@ -227,8 +234,23 @@ const StartDeploy = async () => {
     privateKey: config.instancePrivKey,
   });
 
-  await ssh.execCommand(`docker stop ${response.name}; docker rm ${response.name}; docker run -d --name ${response.name} ${config.instanceIpv4}.nip.io:5000/${response.name}:latest`);
+  const r = await ssh.execCommand(`sudo docker stop ${response.name}; sudo docker rm ${response.name}; sudo docker rmi ${config.instanceIpv4}.nip.io:5000/${response.name}:latest; sudo docker run -d -P --name ${response.name} ${config.instanceIpv4}.nip.io:5000/${response.name}:latest`);
+  const lines = r.stdout.split('\n');
+  const container = lines[lines.length - 1].replace('\r', '');
+
+  const ports = (await ssh.execCommand(`sudo docker port ${container}`)).stdout.split('\n');
+  const port = ports[0];
+  const portNumber = port.split(':')[1];
+
   load.succeed('서버를 시작했습니다.');
+
+  const address = `http://${config.instanceIpv4}:${portNumber}/`;
+  const message = `Your website: ${address}`;
+
+  console.log('');
+  console.log('='.repeat(message.length + 4));
+  console.log(`= ${message} =`);
+  console.log('='.repeat(message.length + 4));
 }
 
 StartDeploy().then(() => process.exit());

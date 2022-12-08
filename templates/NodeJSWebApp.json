@@ -33,7 +33,7 @@
       "expose": ["${WEB_PORT}/tcp"]
     },
     {
-      "cmd": ["${START_COMMAND}"]
+      "cmd": "${START_COMMAND}"
     }
   ]
 }
