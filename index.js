@@ -216,6 +216,19 @@ const StartDeploy = async () => {
   }))();
 
   load.succeed('Docker Image 푸시 성공');
+
+  load = loading("서버를 시작하는 중...");
+  load.start();
+
+  const ssh = new NodeSSH();
+  await ssh.connect({
+    host: config.instanceIpv4,
+    username: 'ec2-user',
+    privateKey: config.instancePrivKey,
+  });
+
+  await ssh.execCommand(`docker stop ${response.name}; docker rm ${response.name}; docker run -d --name ${response.name} ${config.instanceIpv4}.nip.io:5000/${response.name}:latest`);
+  load.succeed('서버를 시작했습니다.');
 }
 
 StartDeploy().then(() => process.exit());
