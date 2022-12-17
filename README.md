@@ -3,6 +3,10 @@
 커맨드 한 번으로 서비스를 배포할 수 있습니다.
 ```
 
+## OneDep-registry을 찾아오셨나요?
+이 Repository는 OneDep 커맨드를 실행하는 CLI입니다.\
+Registry 서버를 관리하는 OneDep-registry를 찾으신다면 [여기를](https://github.com/runasy-koonta/onedep-registry) 방문해주세요.
+
 ## Installation
 ### Requirements
 - [Docker](https://docs.docker.com/install/)
