@@ -10,7 +10,9 @@
       "working_dir": "/usr/share/nginx/html"
     },
     {
-      "copy": ". ."
+      "copy": {
+        ".": "."
+      }
     },
     {
       "expose": ["80/tcp"]
