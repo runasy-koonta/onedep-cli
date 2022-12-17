@@ -7,7 +7,7 @@
 
 
 ## OneDep-registry을 찾아오셨나요?
-이 Repository는 OneDep 커맨드를 실행하는 CLI입니다.\
+이 Repository는 `OneDep` 커맨드를 실행하는 CLI입니다.\
 Registry 서버를 관리하는 OneDep-registry를 찾으신다면 [여기를](https://github.com/runasy-koonta/onedep-registry) 방문해주세요.
 
 ## Installation
@@ -48,6 +48,18 @@ $ onedep
 - [ ] 한 서버에 여러 개의 서비스를 배포할 수 있게 합니다.
 - [ ] Dockerfile을 Eject 할 수 있도록 합니다.
 - [ ] AWS에 생성한 Instance, Security Group, Key Pair를 한번에 제거할 수 있도록 합니다.
+
+## Contributing
+누구든 OneDep을 개선하고 싶으신 분은 언제든지 Pull Request를 보내주세요.\
+OneDep은 오픈소스 프로젝트이므로, 누구나 기여할 수 있습니다.
+
+1. 프로젝트를 [Fork](https://github.com/runasy-koonta/onedep-cli/fork) 하세요.
+2. fork한 Repository에서 코드를 수정하세요.
+3. [Pull Request](https://github.com/runasy-koonta/onedep-cli/pulls) 를 보내주세요.
+4. 아래의 Maintainer가 검토 후 merge합니다.
+
+## License
+MIT License
 
 ## Contacts
 - [Minjun Kang](https://github.com/runasy-koonta) ([minjun@kaaang.dev](mailto:minjun@kaaang.dev))
