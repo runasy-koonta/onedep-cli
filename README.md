@@ -10,7 +10,7 @@ Registry 서버를 관리하는 OneDep-registry를 찾으신다면 [여기를](h
 ## Installation
 ### Requirements
 - [Docker](https://docs.docker.com/install/)
-- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html)
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html) (반드시 로그인되어 있어야 하고, EC2를 생성할 권한이 있어야 합니다.)
 
 ### Install
 ```bash
