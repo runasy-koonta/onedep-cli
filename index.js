@@ -9,12 +9,16 @@ import {Docker} from 'node-docker-api';
 import tar from 'tar-fs';
 
 import AWS from 'aws-sdk';
-import { NodeSSH } from 'node-ssh';
+import {NodeSSH} from 'node-ssh';
 
 import path from 'path';
 import {fileURLToPath} from 'url';
 
+import fetch from 'node-fetch';
+
 const _TEMPLATES = ['NodeJSWebApp', 'StaticWeb', 'PHP7'];
+const _REGISTRY_URL = 'registry.onedep.kr:5000';
+const _REGISTRY_API_URL = 'registry.onedep.kr';
 
 const ReplaceDockerfileArgs = (dockerfile, args) => {
   if (typeof dockerfile === 'string') {
@@ -37,24 +41,14 @@ const StartDeploy = async () => {
 
   let response;
   if (config === null) {
-    response = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'email',
-        message: '이메일 주소를 입력해 주세요.',
-      },
-      {
-        type: 'input',
-        name: 'name',
-        message: '배포할 프로젝트 명을 입력하세요.',
-      },
-      {
-        type: 'list',
-        name: 'platform',
-        message: '배포할 코드의 플랫폼을 선택하세요.',
-        choices: Object.values(templates).map((template) => template.name),
-      },
-    ]);
+    response = await inquirer.prompt([{
+      type: 'input', name: 'name', message: '배포할 프로젝트 명을 입력하세요.',
+    }, {
+      type: 'list',
+      name: 'platform',
+      message: '배포할 코드의 플랫폼을 선택하세요.',
+      choices: Object.values(templates).map((template) => template.name),
+    },]);
   } else {
     response = config;
   }
@@ -67,14 +61,11 @@ const StartDeploy = async () => {
 
   if (config === null && selectedPlatform.custom_args) {
     const customArgs = await inquirer.prompt(Object.entries(selectedPlatform.custom_args).map(([argName, message]) => ({
-      type: 'input',
-      name: argName,
-      message,
+      type: 'input', name: argName, message,
     })));
 
     responses = {
-      ...responses,
-      ...customArgs,
+      ...responses, ...customArgs,
     }
   }
 
@@ -82,7 +73,7 @@ const StartDeploy = async () => {
     let load = loading("새로운 EC2 Instance를 생성하는 중...");
     load.start();
 
-    AWS.config.update({ region: 'ap-northeast-2' });
+    AWS.config.update({region: 'ap-northeast-2'});
     // Create EC2
     const ec2 = new AWS.EC2({apiVersion: '2016-11-15'});
 
@@ -96,26 +87,18 @@ const StartDeploy = async () => {
     const vpc = vpcs.Vpcs[0];
 
     const securityGroup = await ec2.createSecurityGroup({
-      Description: `OneDep_${responses.name}`,
-      GroupName: `OneDep_${responses.name}`,
-      VpcId: vpc.VpcId,
+      Description: `OneDep_${responses.name}`, GroupName: `OneDep_${responses.name}`, VpcId: vpc.VpcId,
     }).promise();
 
     await ec2.authorizeSecurityGroupIngress({
-      GroupId: securityGroup.GroupId,
-      IpPermissions: [
-        {
-          IpProtocol: "tcp",
-          FromPort: 1,
-          ToPort: 65535,
-          IpRanges: [{"CidrIp":"0.0.0.0/0"}]
-        },
-      ]
+      GroupId: securityGroup.GroupId, IpPermissions: [{
+        IpProtocol: "tcp", FromPort: 1, ToPort: 65535, IpRanges: [{"CidrIp": "0.0.0.0/0"}]
+      },]
     }).promise();
 
     // Create EC2 Instance
     const instanceParams = {
-      ImageId: 'ami-0eddbd81024d3fbdd',
+      ImageId: 'ami-0d091be1746738035',
       InstanceType: 't2.micro',
       KeyName: keyPair.KeyName,
       MinCount: 1,
@@ -133,44 +116,41 @@ const StartDeploy = async () => {
     const instance = await ec2.describeInstances({InstanceIds: [instanceId]}).promise();
     const ipv4 = instance.Reservations[0].Instances[0].PublicIpAddress;
 
-    config = { ...responses };
+    config = {...responses};
     config.instanceId = instanceId;
     config.instanceIpv4 = ipv4;
     config.instancePrivKey = keyPair.KeyMaterial;
     config.registryPassword = `${Math.random().toString(36).slice(-8)}${Math.random().toString(36).slice(-8)}${Math.random().toString(36).slice(-8)}`;
+
+    const credRequest = await fetch(`http://${_REGISTRY_API_URL}/new`, {
+      method: 'POST', headers: {
+        'Content-Type': 'application/json',
+      }, body: JSON.stringify({password: config.registryPassword}),
+    });
+    const credResponse = await credRequest.json();
+    if (!credResponse.success) {
+      throw new Error('Failed to create registry credentials');
+    }
+    config.registryUsername = credResponse.username;
 
     const ssh = new NodeSSH();
 
     const conn = async () => {
       try {
         await ssh.connect({
-          host: ipv4,
-          username: 'ec2-user',
-          privateKey: keyPair.KeyMaterial,
+          host: ipv4, username: 'ec2-user', privateKey: keyPair.KeyMaterial,
         });
       } catch (e) {
-        await (async () => setTimeout(() => {}, 10000))();
+        await (async () => setTimeout(() => {
+        }, 3000))();
         await conn();
       }
     };
     await conn();
 
-    const commands = fs.readFileSync(path.join(__dirname, 'commands', 'Docker')).toString().replace(/\${(\w+)}/g, (match, argName) => config[argName]).replace(/\r/g, '');
-    const shell = await ssh.requestShell();
 
+    await ssh.execCommand(`sudo service docker start; sudo docker login ${_REGISTRY_URL} -u ${config.registryUsername} -p ${config.registryPassword}`);
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-
-    await (() => new Promise((resolve) => {
-      shell.on('close', () => {
-        resolve();
-      });
-      shell.on('data', (data) => {
-        const l = data.toString().split('\n')[0].replace(/\r/g, '');
-
-        load.text = '새로운 EC2 Instance를 생성하는 중... (' + l.substring(0, 60) + ')';
-      });
-      shell.end(commands);
-    }))();
 
     load.succeed(`EC2 생성 완료 (${instanceId})`);
   }
@@ -191,7 +171,10 @@ const StartDeploy = async () => {
 
   await (() => new Promise((resolve, reject) => {
     stream.on('data', data => load.text = `Docker Image를 빌드하는 중... (${JSON.parse(data.toString().split('\r\n')[0]).stream.replace('\n', '').replace('\r', '').substring(6)})`);
-    stream.on('error', (err) => { load.fail(`Docker Image 빌드 실패: ${err.message}`); reject(); })
+    stream.on('error', (err) => {
+      load.fail(`Docker Image 빌드 실패: ${err.message}`);
+      reject();
+    })
     stream.on('end', () => {
       return resolve();
     });
@@ -205,18 +188,18 @@ const StartDeploy = async () => {
   const image = docker.image.get(`${response.name}:latest`);
 
   await image.tag({
-    repo: `${config.instanceIpv4}.nip.io:5000/${response.name}`,
-    tag: `latest`,
+    repo: `${_REGISTRY_URL}/${response.name}`, tag: `latest`,
   });
-  const pushStream = await docker.image.get(`${config.instanceIpv4}.nip.io:5000/${response.name}:latest`).push({
-    username: 'onedep',
-    password: config.registryPassword,
-    serveraddress: `${config.instanceIpv4}:5000`
+  const pushStream = await docker.image.get(`${_REGISTRY_URL}/${response.name}:latest`).push({
+    username: config.registryUsername, password: config.registryPassword, serveraddress: _REGISTRY_URL
   });
 
   await (() => new Promise((resolve, reject) => {
     pushStream.on('data', data => load.text = `Docker Image를 푸시하는 중... (${JSON.parse(data.toString().split('\r\n')[0]).status})`);
-    pushStream.on('error', (err) => { load.fail(`Docker Image 푸시 실패: ${err.message}`); reject(); })
+    pushStream.on('error', (err) => {
+      load.fail(`Docker Image 푸시 실패: ${err.message}`);
+      reject();
+    })
     pushStream.on('end', () => {
       return resolve();
     });
@@ -229,12 +212,10 @@ const StartDeploy = async () => {
 
   const ssh = new NodeSSH();
   await ssh.connect({
-    host: config.instanceIpv4,
-    username: 'ec2-user',
-    privateKey: config.instancePrivKey,
+    host: config.instanceIpv4, username: 'ec2-user', privateKey: config.instancePrivKey,
   });
 
-  const r = await ssh.execCommand(`sudo docker stop ${response.name}; sudo docker rm ${response.name}; sudo docker rmi ${config.instanceIpv4}.nip.io:5000/${response.name}:latest; sudo docker run -d -P --name ${response.name} ${config.instanceIpv4}.nip.io:5000/${response.name}:latest`);
+  const r = await ssh.execCommand(`sudo docker stop ${response.name}; sudo docker rm ${response.name}; sudo docker rmi ${_REGISTRY_URL}/${response.name}:latest; sudo docker run -d -P --name ${response.name} ${_REGISTRY_URL}/${response.name}:latest`);
   const lines = r.stdout.split('\n');
   const container = lines[lines.length - 1].replace('\r', '');
 

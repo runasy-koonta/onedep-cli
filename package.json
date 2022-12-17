@@ -16,6 +16,7 @@
     "inquirer": "^9.1.4",
     "loading-cli": "^1.1.0",
     "node-docker-api": "^1.1.22",
+    "node-fetch": "^3.3.0",
     "node-ssh": "^13.0.0",
     "ssh2": "^1.11.0",
     "tar-fs": "^2.1.1",
