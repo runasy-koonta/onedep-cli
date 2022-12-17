@@ -31,6 +31,10 @@ $ npm link
 $ onedep
 ```
 
+### 주의 사항
+실행 후 연결된 AWS 계정의 ap-northeast-2 (서울) 리전에 EC2 Instance가 생성됩니다.\
+비용이 발생할 수 있으니 주의하세요.
+
 ## Roadmap
 - [x] 템플릿을 제공해 Dockerfile을 쉽게 작성할 수 있게 합니다.
 - [x] AWS EC2를 자동으로 생성하고 Docker를 셋업합니다.
@@ -40,6 +44,7 @@ $ onedep
 - [ ] stdout를 모니터링해 Telegram 알림 등을 전송합니다.
 - [ ] 한 서버에 여러 개의 서비스를 배포할 수 있게 합니다.
 - [ ] Dockerfile을 Eject 할 수 있도록 합니다.
+- [ ] AWS에 생성한 Instance, Security Group, Key Pair를 한번에 제거할 수 있도록 합니다.
 
 ## Contacts
 - [Minjun Kang](https://github.com/runasy-koonta) ([minjun@kaaang.dev](mailto:minjun@kaaang.dev))
