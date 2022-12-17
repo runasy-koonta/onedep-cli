@@ -16,7 +16,7 @@ import {fileURLToPath} from 'url';
 
 import fetch from 'node-fetch';
 
-const _TEMPLATES = ['NodeJSWebApp', 'StaticWeb', 'PHP7'];
+const _TEMPLATES = ['NodeJSWebApp', 'StaticWeb'];
 const _REGISTRY_URL = 'registry.onedep.kr:5000';
 const _REGISTRY_API_URL = 'registry.onedep.kr';
 
@@ -170,7 +170,7 @@ const StartDeploy = async () => {
   });
 
   await (() => new Promise((resolve, reject) => {
-    stream.on('data', data => load.text = `Docker Image를 빌드하는 중... (${JSON.parse(data.toString().split('\r\n')[0]).stream.replace('\n', '').replace('\r', '').substring(6)})`);
+    stream.on('data', data => load.text = `Docker Image를 빌드하는 중... (${(JSON.parse(data.toString().split('\r\n')[0]).stream ?? '').replace('\n', '').replace('\r', '').substring(6)})`);
     stream.on('error', (err) => {
       load.fail(`Docker Image 빌드 실패: ${err.message}`);
       reject();
